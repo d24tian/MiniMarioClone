@@ -1,0 +1,1153 @@
+/**
+
+http://themushroomkingdom.net/media/smb/wav
+
+TO DO:
+
+Make Level.cpp able to load multiple files
+Make flag pole
+Make music manager
+
+*/
+
+#include "header.h"
+
+static const float VIEW_HEIGHT = 480.0f;
+
+vector<Player> players;
+vector<Audio> audios;
+vector<blockPoint> tmpDecorations;
+vector<blockPoint> tmpBreakableBlocks;
+vector<blockPoint> tmpUnbreakableBlocks;
+vector<blockPoint> tmpQuestionBlocks;
+vector<blockPoint> tmpPipes;
+vector<blockPoint> tmpGoombas;
+vector<blockPoint> tmpKoopas;
+vector<Decoration> decorations;
+vector<BreakableBlock> breakableBlocks;
+vector<UnbreakableBlock> unbreakableBlocks;
+vector<QuestionBlock> questionBlocks;
+vector<Pipe> pipes;
+vector<Goomba> goombas;
+vector<Koopa> koopas;
+vector<Item> items;
+vector<Fireball> fireballs;
+vector<Coin> coins;
+vector<BlockParticle> blockParticles;
+vector<CoinIcon> coinIcons;
+
+vector<sf::Text> UIText;
+
+int inGame = 0;
+float loadTimer = 3.0f;
+int level = 11;
+int lives = 3;
+
+pause pauseCounter;
+
+int score = 0;
+int coinCounter = 0;
+float timeLimit = 400.0f;
+
+std::string requestedMusic = "";
+std::string currentMusic = "";
+
+///Manage the view window
+void ResizeView(const sf::RenderWindow& window, sf::View& view)
+{
+    float aspectRatio = float(window.getSize().x) / float(window.getSize().y);
+    view.setSize(VIEW_HEIGHT * aspectRatio, VIEW_HEIGHT);
+}
+
+///MAIN----------------------------------------------------------------------------------------------------
+int main()
+{
+    srand((unsigned)time(0));
+
+    ///Create window
+    sf::RenderWindow window(sf::VideoMode(512.0f, 480.0f), "MiniMario", sf::Style::Close | sf::Style::Titlebar);
+
+    sf::View view(sf::Vector2f(0.0f, 0.0f), sf::Vector2f(512.0f, VIEW_HEIGHT));
+    ResizeView(window, view);
+    view.setCenter(sf::Vector2f(240.0f, 416.0f));
+
+    ///Load textures
+    sf::Texture mario;
+    mario.loadFromFile("sprites/mario.png");
+
+    ///Create player class
+    players.push_back(Player(&mario, sf::Vector2u(4, 16), 0.075f, 5.0f, 981.0f));
+
+    ///Create sound effects manager
+    audios.push_back(Audio());
+    audios[0].LoadAudio();
+
+    ///Play music
+    MusicManager mm;
+    mm.Add("audio/courseClear.wav", false);
+    mm.Add("audio/death.wav", false);
+    mm.Add("audio/gameOver.wav", false);
+    mm.Add("audio/invincible.wav", true);
+    mm.Add("audio/overworld.wav", true);
+    mm.Add("audio/overworldHurryUp.wav", true);
+    mm.Add("audio/underground.wav", true);
+    mm.Add("audio/warning.wav", false);
+
+    ///Create UI
+    CreateUI();
+
+
+    sf::Texture coinIconTexture;
+    coinIconTexture.loadFromFile("sprites/coinIcon.png");
+
+    sf::Texture livesIconTexture;
+    livesIconTexture.loadFromFile("sprites/livesIcon.png");
+
+    coinIcons.push_back(CoinIcon(&coinIconTexture));
+    sf::RectangleShape livesIcon;
+    livesIcon.setSize(sf::Vector2f(32.0f, 32.0f));
+    livesIcon.setOrigin(livesIcon.getSize() / 2.0f);
+    livesIcon.setTexture(&livesIconTexture);
+
+    /**
+    0 = marioText
+    1 = scoreNumber
+    2 = coinXText
+    3 = coinNumber
+    4 = worldText
+    5 = worldNumber
+    6 = timeText
+    7 = timeNumber
+    8 = livesXText
+    9 = livesNumber
+    10 = worldLoadingText
+    11 = worldLoadingNumber
+    12 = gameOverText
+    */
+
+    /*
+    sf::Font PressStart2P;
+    PressStart2P.loadFromFile("fonts/PressStart2P.ttf");
+
+    sf::Texture coinIconTexture;
+    coinIconTexture.loadFromFile("sprites/coinIcon.png");
+
+    sf::Texture livesIconTexture;
+    livesIconTexture.loadFromFile("sprites/livesIcon.png");
+
+    sf::Text marioText;
+    marioText.setFont(PressStart2P);
+    marioText.setString("MARIO");
+    marioText.setCharacterSize(16);
+    marioText.setFillColor(sf::Color::White);
+    marioText.setOrigin(sf::Vector2f(marioText.getCharacterSize() * marioText.getString().getSize() / 2.0f, marioText.getCharacterSize() / 2.0f));
+
+    sf::Text scoreNumber;
+    scoreNumber.setFont(PressStart2P);
+    scoreNumber.setCharacterSize(16);
+    scoreNumber.setFillColor(sf::Color::White);
+
+    coinIcons.push_back(CoinIcon(&coinIconTexture));
+
+    sf::Text coinXText;
+    coinXText.setFont(PressStart2P);
+    coinXText.setString("X");
+    coinXText.setCharacterSize(16);
+    coinXText.setFillColor(sf::Color::White);
+    coinXText.setOrigin(sf::Vector2f(coinXText.getCharacterSize() * coinXText.getString().getSize() / 2.0f, coinXText.getCharacterSize() / 2.0f));
+
+    sf::Text coinNumber;
+    coinNumber.setFont(PressStart2P);
+    coinNumber.setCharacterSize(16);
+    coinNumber.setFillColor(sf::Color::White);
+
+    sf::Text worldText;
+    worldText.setFont(PressStart2P);
+    worldText.setString("WORLD");
+    worldText.setCharacterSize(16);
+    worldText.setFillColor(sf::Color::White);
+    worldText.setOrigin(sf::Vector2f(worldText.getCharacterSize() * worldText.getString().getSize() / 2.0f, worldText.getCharacterSize() / 2.0f));
+
+    sf::Text worldNumber;
+    worldNumber.setFont(PressStart2P);
+    worldNumber.setCharacterSize(16);
+    worldNumber.setFillColor(sf::Color::White);
+
+    sf::Text timeText;
+    timeText.setFont(PressStart2P);
+    timeText.setString("TIME");
+    timeText.setCharacterSize(16);
+    timeText.setFillColor(sf::Color::White);
+    timeText.setOrigin(sf::Vector2f(timeText.getCharacterSize() * timeText.getString().getSize() / 2.0f, timeText.getCharacterSize() / 2.0f));
+
+    sf::Text timeNumber;
+    timeNumber.setFont(PressStart2P);
+    timeNumber.setCharacterSize(16);
+    timeNumber.setFillColor(sf::Color::White);
+
+    sf::RectangleShape livesIcon;
+    livesIcon.setSize(sf::Vector2f(32.0f, 32.0f));
+    livesIcon.setOrigin(livesIcon.getSize() / 2.0f);
+    livesIcon.setTexture(&livesIconTexture);
+
+    sf::Text worldLoadingText;
+    worldLoadingText.setFont(PressStart2P);
+    worldLoadingText.setString("WORLD");
+    worldLoadingText.setCharacterSize(16);
+    worldLoadingText.setFillColor(sf::Color::White);
+    worldLoadingText.setOrigin(sf::Vector2f(worldText.getCharacterSize() * worldText.getString().getSize() / 2.0f, worldText.getCharacterSize() / 2.0f));
+
+    sf::Text worldLoadingNumber;
+    worldLoadingNumber.setFont(PressStart2P);
+    worldLoadingNumber.setCharacterSize(16);
+    worldLoadingNumber.setFillColor(sf::Color::White);
+
+    sf::Text livesXText;
+    livesXText.setFont(PressStart2P);
+    livesXText.setString("X");
+    livesXText.setCharacterSize(16);
+    livesXText.setFillColor(sf::Color::White);
+    livesXText.setOrigin(sf::Vector2f(livesXText.getCharacterSize() * livesXText.getString().getSize() / 2.0f, livesXText.getCharacterSize() / 2.0f));
+
+    sf::Text livesNumber;
+    livesNumber.setFont(PressStart2P);
+    livesNumber.setCharacterSize(16);
+    livesNumber.setFillColor(sf::Color::White);
+
+    /*
+    sf::Text gameOverText;
+    gameOverText.setFont(PressStart2P);
+    gameOverText.setString("GAME OVER");
+    gameOverText.setCharacterSize(16);
+    gameOverText.setFillColor(sf::Color::White);
+    gameOverText.setOrigin(sf::Vector2f(gameOverText.getCharacterSize() * gameOverText.getString().getSize() / 2.0f, gameOverText.getCharacterSize() / 2.0f));
+    */
+
+    ///Start deltaTime clock
+    float deltaTime = 0.0f;
+    sf::Clock clock;
+
+
+    //MAIN GAME LOOP----------------------------------------------------------------------------------------------------
+    while (window.isOpen())
+    {
+        deltaTime = clock.restart().asSeconds();
+
+        sf::Event evnt;
+        while (window.pollEvent(evnt))
+        {
+            switch(evnt.type)
+            {
+            case sf::Event::Closed:
+                window.close();
+                break;
+            case sf::Event::Resized:
+                ResizeView(window, view);
+                break;
+            }
+        }
+
+        ///Manage music
+        if (requestedMusic != currentMusic)
+        {
+            mm.GetCurrent()->stop();
+            if (requestedMusic != "")
+            {
+                if (requestedMusic == "courseClear")
+                {
+                    mm.SetCurrent(0);
+                }
+                else if (requestedMusic == "death")
+                {
+                    mm.SetCurrent(1);
+                }
+                else if (requestedMusic == "gameOver")
+                {
+                    mm.SetCurrent(2);
+                }
+                else if (requestedMusic == "invincible")
+                {
+                    mm.SetCurrent(3);
+                }
+                else if (requestedMusic == "overworld")
+                {
+                    mm.SetCurrent(4);
+                }
+                else if (requestedMusic == "overworldHurryUp")
+                {
+                    mm.SetCurrent(5);
+                }
+                else if (requestedMusic == "underground")
+                {
+                    mm.SetCurrent(6);
+                }
+                else if (requestedMusic == "warning")
+                {
+                    mm.SetCurrent(7);
+                }
+                mm.GetCurrent()->play();
+            }
+            currentMusic = requestedMusic;
+        }
+
+        ///Menu
+        if (inGame == 0)
+        {
+            inGame = 1;
+        }
+        ///Loading screen
+        else if (inGame == 1)
+        {
+            ///Set music
+            requestedMusic = "";
+
+            ///Do timer
+            if (loadTimer > 0.0f)
+            {
+                loadTimer -= deltaTime;
+            }
+            else
+            {
+                ///Start level
+                StartLevel(level);
+                CreateBlocks();
+                SetTextures();
+                loadTimer = 0.0f;
+                inGame = 2;
+            }
+
+            ///Reset view
+            view.setCenter(sf::Vector2f(0.0f, 0.0f));
+
+            window.clear(sf::Color(0, 0, 0));
+            window.setView(view);
+
+            ///Update and draw text
+            /**
+            0 = marioText
+            1 = scoreNumber
+            2 = coinXText
+            3 = coinNumber
+            4 = worldText
+            5 = worldNumber
+            6 = timeText
+            7 = timeNumber
+            8 = worldLoadingText
+            9 = worldLoadingNumber
+            10 = livesXText
+            11 = livesNumber
+            12 = gameOverText
+            */
+
+            UIText[0].setPosition(sf::Vector2f(view.getCenter().x - 176.0f, view.getCenter().y - 224.0f));
+            window.draw(UIText[0]);
+
+            stringstream ss;
+            ss << score;
+            string scoreString = ss.str();
+
+            if (score < 100000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 10000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 1000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 100)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 10)
+            {
+                scoreString.insert(0, "0");
+            }
+
+            UIText[1].setString(scoreString);
+            UIText[1].setOrigin(sf::Vector2f(UIText[1].getCharacterSize() * UIText[1].getString().getSize() / 2.0f, UIText[1].getCharacterSize() / 2.0f));
+            UIText[1].setPosition(sf::Vector2f(view.getCenter().x - 168.0f, view.getCenter().y - 208.0f));
+            window.draw(UIText[1]);
+
+            coinIcons[0].SetPosition(view.getCenter().x - 80.0f, view.getCenter().y - 208.0f);
+            coinIcons[0].Update(deltaTime);
+            coinIcons[0].Draw(window);
+
+            UIText[2].setPosition(sf::Vector2f(view.getCenter().x - 64.0f, view.getCenter().y - 208.0f));
+            window.draw(UIText[2]);
+
+            stringstream cs;
+            cs << coinCounter;
+            string coinString = cs.str();
+
+            if (coinCounter < 10)
+            {
+                coinString.insert(0, "0");
+            }
+
+            UIText[3].setString(coinString);
+            UIText[3].setOrigin(sf::Vector2f(UIText[3].getCharacterSize() * UIText[3].getString().getSize() / 2.0f, UIText[3].getCharacterSize() / 2.0f));
+            UIText[3].setPosition(sf::Vector2f(view.getCenter().x - 32.0f, view.getCenter().y - 208.0f));
+            window.draw(UIText[3]);
+
+            UIText[4].setPosition(sf::Vector2f(view.getCenter().x + 64.0f, view.getCenter().y - 224.0f));
+            window.draw(UIText[4]);
+
+            stringstream ws;
+            ws << level;
+            string worldString = ws.str();
+            worldString.insert(1, "-");
+
+            UIText[5].setString(worldString);
+            UIText[5].setOrigin(sf::Vector2f(UIText[5].getCharacterSize() * UIText[5].getString().getSize() / 2.0f, UIText[5].getCharacterSize() / 2.0f));
+            UIText[5].setPosition(sf::Vector2f(view.getCenter().x + 64.0f, view.getCenter().y - 208.0f));
+            window.draw(UIText[5]);
+
+            UIText[6].setPosition(sf::Vector2f(view.getCenter().x + 176.0f, view.getCenter().y - 224.0f));
+            window.draw(UIText[6]);
+
+            ///Loading screen exclusive UI
+            UIText[8].setPosition(sf::Vector2f(view.getCenter().x - 48.0f, view.getCenter().y - 64.0f));
+            window.draw(UIText[8]);
+
+            stringstream wls;
+            wls << level;
+            string worldLoadingString = wls.str();
+            worldLoadingString.insert(1, "-");
+
+            UIText[9].setString(worldLoadingString);
+            UIText[9].setOrigin(sf::Vector2f(UIText[9].getCharacterSize() * UIText[9].getString().getSize() / 2.0f, UIText[9].getCharacterSize() / 2.0f));
+            UIText[9].setPosition(sf::Vector2f(view.getCenter().x + 48.0f, view.getCenter().y - 64.0f));
+            window.draw(UIText[9]);
+
+            livesIcon.setPosition(sf::Vector2f(view.getCenter().x - 48.0f, view.getCenter().y - 4.0f));
+            window.draw(livesIcon);
+
+            UIText[10].setPosition(sf::Vector2f(view.getCenter().x - 0.0f, view.getCenter().y - 0.0f));
+            window.draw(UIText[10]);
+
+            stringstream ls;
+            ls << lives;
+            string livesString = ls.str();
+
+            UIText[11].setString(livesString);
+            UIText[11].setOrigin(sf::Vector2f(UIText[11].getCharacterSize() * UIText[11].getString().getSize() / 2.0f, UIText[11].getCharacterSize() / 2.0f));
+            UIText[11].setPosition(sf::Vector2f(view.getCenter().x + 48.0f, view.getCenter().y - 0.0f));
+            window.draw(UIText[11]);
+
+            /*
+            marioText.setPosition(sf::Vector2f(view.getCenter().x - 176.0f, view.getCenter().y - 224.0f));
+            window.draw(marioText);
+
+            stringstream ss;
+            ss << score;
+            string scoreString = ss.str();
+
+            if (score < 100000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 10000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 1000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 100)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 10)
+            {
+                scoreString.insert(0, "0");
+            }
+
+            scoreNumber.setString(scoreString);
+            scoreNumber.setOrigin(sf::Vector2f(scoreNumber.getCharacterSize() * scoreNumber.getString().getSize() / 2.0f, scoreNumber.getCharacterSize() / 2.0f));
+            scoreNumber.setPosition(sf::Vector2f(view.getCenter().x - 168.0f, view.getCenter().y - 208.0f));
+            window.draw(scoreNumber);
+
+            coinIcons[0].SetPosition(view.getCenter().x - 80.0f, view.getCenter().y - 208.0f);
+            coinIcons[0].Update(deltaTime);
+            coinIcons[0].Draw(window);
+
+            coinXText.setPosition(sf::Vector2f(view.getCenter().x - 64.0f, view.getCenter().y - 208.0f));
+            window.draw(coinXText);
+
+            stringstream cs;
+            cs << coinCounter;
+            string coinString = cs.str();
+
+            if (coinCounter < 10)
+            {
+                coinString.insert(0, "0");
+            }
+
+            coinNumber.setString(coinString);
+            coinNumber.setOrigin(sf::Vector2f(coinNumber.getCharacterSize() * coinNumber.getString().getSize() / 2.0f, coinNumber.getCharacterSize() / 2.0f));
+            coinNumber.setPosition(sf::Vector2f(view.getCenter().x - 32.0f, view.getCenter().y - 208.0f));
+            window.draw(coinNumber);
+
+            worldText.setPosition(sf::Vector2f(view.getCenter().x + 64.0f, view.getCenter().y - 224.0f));
+            window.draw(worldText);
+
+            stringstream ws;
+            ws << level;
+            string worldString = ws.str();
+            worldString.insert(1, "-");
+
+            worldNumber.setString(worldString);
+            worldNumber.setOrigin(sf::Vector2f(worldNumber.getCharacterSize() * worldNumber.getString().getSize() / 2.0f, worldNumber.getCharacterSize() / 2.0f));
+            worldNumber.setPosition(sf::Vector2f(view.getCenter().x + 64.0f, view.getCenter().y - 208.0f));
+            window.draw(worldNumber);
+
+            timeText.setPosition(sf::Vector2f(view.getCenter().x + 176.0f, view.getCenter().y - 224.0f));
+            window.draw(timeText);
+
+            ///Loading screen exclusive UI
+            worldLoadingText.setPosition(sf::Vector2f(view.getCenter().x - 48.0f, view.getCenter().y - 64.0f));
+            window.draw(worldLoadingText);
+
+            stringstream wls;
+            wls << level;
+            string worldLoadingString = wls.str();
+            worldLoadingString.insert(1, "-");
+
+            worldLoadingNumber.setString(worldLoadingString);
+            worldLoadingNumber.setOrigin(sf::Vector2f(worldLoadingNumber.getCharacterSize() * worldLoadingNumber.getString().getSize() / 2.0f, worldLoadingNumber.getCharacterSize() / 2.0f));
+            worldLoadingNumber.setPosition(sf::Vector2f(view.getCenter().x + 48.0f, view.getCenter().y - 64.0f));
+            window.draw(worldLoadingNumber);
+
+            livesIcon.setPosition(sf::Vector2f(view.getCenter().x - 48.0f, view.getCenter().y - 4.0f));
+            window.draw(livesIcon);
+
+            livesXText.setPosition(sf::Vector2f(view.getCenter().x - 0.0f, view.getCenter().y - 0.0f));
+            window.draw(livesXText);
+
+            stringstream ls;
+            ls << lives;
+            string livesString = ls.str();
+
+            livesNumber.setString(livesString);
+            livesNumber.setOrigin(sf::Vector2f(livesNumber.getCharacterSize() * livesNumber.getString().getSize() / 2.0f, livesNumber.getCharacterSize() / 2.0f));
+            livesNumber.setPosition(sf::Vector2f(view.getCenter().x + 48.0f, view.getCenter().y - 0.0f));
+            window.draw(livesNumber);
+            */
+
+            window.display();
+        }
+        ///Game
+        else if (inGame == 2)
+        {
+            ///Update music
+            /*
+            if (level == 11 && currentMusic == "")
+            {
+                requestedMusic = "overworld";
+            }
+            */
+
+            if ((int)(timeLimit + 0.5) == 100)
+            {
+                if (currentMusic == "overworld")
+                {
+                    requestedMusic = "warning";
+                }
+            }
+
+            if (currentMusic == "warning" && mm.GetCurrent()->getStatus() == sf::SoundSource::Stopped)
+            {
+                if (level == 11)
+                {
+                    requestedMusic = "overworldHurryUp";
+                }
+            }
+
+            ///Update the player
+            players[0].Update(deltaTime);
+
+            ///Set the view to be focused on the player only on the x axis
+            if (players[0].GetPosition().x < 240.0f)
+            {
+                view.setCenter(sf::Vector2f(240.0f, 416.0f));
+            }
+            else if (players[0].GetPosition().x > 6512.0f)
+            {
+                view.setCenter(sf::Vector2f(6512.0f, 416.0f));
+            }
+            else
+            {
+                view.setCenter(sf::Vector2f(players[0].GetPosition().x, 416.0f));
+            }
+
+            ///Refresh window
+            window.clear(sf::Color(92, 148, 252));
+            window.setView(view);
+
+            ///Update and draw, and delete all classes when necessary
+            for (int i = 0; i < decorations.size(); i++)
+            {
+                decorations[i].Update(deltaTime);
+                decorations[i].Draw(window);
+            }
+
+            for (int i = 0; i < items.size(); i++)
+            {
+                items[i].Update(deltaTime);
+                items[i].Draw(window);
+            }
+
+            for (int i = 0; i < coins.size(); i++)
+            {
+                coins[i].Update(deltaTime);
+                coins[i].Draw(window);
+                if (coins[i].movement == 2)
+                {
+                    coins.erase(coins.begin() + i);
+                }
+            }
+
+            for (int i = 0; i < breakableBlocks.size(); i++)
+            {
+                breakableBlocks[i].Update(deltaTime);
+                breakableBlocks[i].Draw(window);
+            }
+
+            for (int i = 0; i < unbreakableBlocks.size(); i++)
+            {
+                unbreakableBlocks[i].Update();
+                unbreakableBlocks[i].Draw(window);
+            }
+
+            for (int i = 0; i < questionBlocks.size(); i++)
+            {
+                questionBlocks[i].Update(deltaTime);
+                questionBlocks[i].Draw(window);
+            }
+
+            for (int i = 0; i < pipes.size(); i++)
+            {
+                pipes[i].Update();
+                pipes[i].Draw(window);
+            }
+
+            for (int i = 0; i < goombas.size(); i++)
+            {
+                goombas[i].Update(deltaTime);
+                goombas[i].Draw(window);
+                if (goombas[i].squishTimer >= 1.5f)
+                {
+                    goombas.erase(goombas.begin() + i);
+                }
+            }
+
+            for (int i = 0; i < koopas.size(); i++)
+            {
+                koopas[i].Update(deltaTime);
+                koopas[i].Draw(window);
+            }
+
+            for (int i = 0; i < fireballs.size(); i++)
+            {
+                fireballs[i].Update(deltaTime);
+                fireballs[i].Draw(window);
+                if (fireballs[i].explodeCounter >= 2.2f)
+                {
+                    fireballs.erase(fireballs.begin() + i);
+                }
+            }
+
+            for (int i = 0; i < blockParticles.size(); i++)
+            {
+                blockParticles[i].Update(deltaTime);
+                blockParticles[i].Draw(window);
+                if (blockParticles[i].isOutside)
+                {
+                    blockParticles.erase(blockParticles.begin() + i);
+                }
+            }
+
+            ///Draw player last to make sure player is always on the topmost graphics layer
+            players[0].Draw(window);
+
+            ///Update and draw text
+
+            UIText[0].setPosition(sf::Vector2f(view.getCenter().x - 176.0f, view.getCenter().y - 224.0f));
+            window.draw(UIText[0]);
+
+            stringstream ss;
+            ss << score;
+            string scoreString = ss.str();
+
+            if (score < 100000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 10000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 1000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 100)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 10)
+            {
+                scoreString.insert(0, "0");
+            }
+
+            UIText[1].setString(scoreString);
+            UIText[1].setOrigin(sf::Vector2f(UIText[1].getCharacterSize() * UIText[1].getString().getSize() / 2.0f, UIText[1].getCharacterSize() / 2.0f));
+            UIText[1].setPosition(sf::Vector2f(view.getCenter().x - 168.0f, view.getCenter().y - 208.0f));
+            window.draw(UIText[1]);
+
+            coinIcons[0].SetPosition(view.getCenter().x - 80.0f, view.getCenter().y - 208.0f);
+            coinIcons[0].Update(deltaTime);
+            coinIcons[0].Draw(window);
+
+            UIText[2].setPosition(sf::Vector2f(view.getCenter().x - 64.0f, view.getCenter().y - 208.0f));
+            window.draw(UIText[2]);
+
+            stringstream cs;
+            cs << coinCounter;
+            string coinString = cs.str();
+
+            if (coinCounter < 10)
+            {
+                coinString.insert(0, "0");
+            }
+
+            UIText[3].setString(coinString);
+            UIText[3].setOrigin(sf::Vector2f(UIText[3].getCharacterSize() * UIText[3].getString().getSize() / 2.0f, UIText[3].getCharacterSize() / 2.0f));
+            UIText[3].setPosition(sf::Vector2f(view.getCenter().x - 32.0f, view.getCenter().y - 208.0f));
+            window.draw(UIText[3]);
+
+            UIText[4].setPosition(sf::Vector2f(view.getCenter().x + 64.0f, view.getCenter().y - 224.0f));
+            window.draw(UIText[4]);
+
+            stringstream ws;
+            ws << level;
+            string worldString = ws.str();
+            worldString.insert(1, "-");
+
+            UIText[5].setString(worldString);
+            UIText[5].setOrigin(sf::Vector2f(UIText[5].getCharacterSize() * UIText[5].getString().getSize() / 2.0f, UIText[5].getCharacterSize() / 2.0f));
+            UIText[5].setPosition(sf::Vector2f(view.getCenter().x + 64.0f, view.getCenter().y - 208.0f));
+            window.draw(UIText[5]);
+
+            UIText[6].setPosition(sf::Vector2f(view.getCenter().x + 176.0f, view.getCenter().y - 224.0f));
+            window.draw(UIText[6]);
+
+            stringstream ts;
+            ts << (int)(timeLimit + 0.5);
+            string timeString = ts.str();
+
+            UIText[7].setString(timeString);
+            UIText[7].setOrigin(sf::Vector2f(UIText[7].getCharacterSize() * UIText[7].getString().getSize() / 2.0f, UIText[7].getCharacterSize() / 2.0f));
+            UIText[7].setPosition(sf::Vector2f(view.getCenter().x + 176.0f, view.getCenter().y - 208.0f));
+            window.draw(UIText[7]);
+
+            /*
+            marioText.setPosition(sf::Vector2f(view.getCenter().x - 176.0f, view.getCenter().y - 224.0f));
+            window.draw(marioText);
+
+            stringstream ss;
+            ss << score;
+            string scoreString = ss.str();
+
+            if (score < 100000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 10000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 1000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 100)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 10)
+            {
+                scoreString.insert(0, "0");
+            }
+
+            scoreNumber.setString(scoreString);
+            scoreNumber.setOrigin(sf::Vector2f(scoreNumber.getCharacterSize() * scoreNumber.getString().getSize() / 2.0f, scoreNumber.getCharacterSize() / 2.0f));
+            scoreNumber.setPosition(sf::Vector2f(view.getCenter().x - 168.0f, view.getCenter().y - 208.0f));
+            window.draw(scoreNumber);
+
+            coinIcons[0].SetPosition(view.getCenter().x - 80.0f, view.getCenter().y - 208.0f);
+            coinIcons[0].Update(deltaTime);
+            coinIcons[0].Draw(window);
+
+            coinXText.setPosition(sf::Vector2f(view.getCenter().x - 64.0f, view.getCenter().y - 208.0f));
+            window.draw(coinXText);
+
+            stringstream cs;
+            cs << coinCounter;
+            string coinString = cs.str();
+
+            if (coinCounter < 10)
+            {
+                coinString.insert(0, "0");
+            }
+
+            coinNumber.setString(coinString);
+            coinNumber.setOrigin(sf::Vector2f(coinNumber.getCharacterSize() * coinNumber.getString().getSize() / 2.0f, coinNumber.getCharacterSize() / 2.0f));
+            coinNumber.setPosition(sf::Vector2f(view.getCenter().x - 32.0f, view.getCenter().y - 208.0f));
+            window.draw(coinNumber);
+
+            worldText.setPosition(sf::Vector2f(view.getCenter().x + 64.0f, view.getCenter().y - 224.0f));
+            window.draw(worldText);
+
+            stringstream ws;
+            ws << level;
+            string worldString = ws.str();
+            worldString.insert(1, "-");
+
+            worldNumber.setString(worldString);
+            worldNumber.setOrigin(sf::Vector2f(worldNumber.getCharacterSize() * worldNumber.getString().getSize() / 2.0f, worldNumber.getCharacterSize() / 2.0f));
+            worldNumber.setPosition(sf::Vector2f(view.getCenter().x + 64.0f, view.getCenter().y - 208.0f));
+            window.draw(worldNumber);
+
+            timeText.setPosition(sf::Vector2f(view.getCenter().x + 176.0f, view.getCenter().y - 224.0f));
+            window.draw(timeText);
+
+            stringstream ts;
+            ts << (int)(timeLimit + 0.5);
+            string timeString = ts.str();
+
+            timeNumber.setString(timeString);
+            timeNumber.setOrigin(sf::Vector2f(timeNumber.getCharacterSize() * timeNumber.getString().getSize() / 2.0f, timeNumber.getCharacterSize() / 2.0f));
+            timeNumber.setPosition(sf::Vector2f(view.getCenter().x + 176.0f, view.getCenter().y - 208.0f));
+            window.draw(timeNumber);
+            */
+
+            ///Pauses
+            ///Rows: 0 = big, 5 = small, 10 = fire, 9 = death (small)
+            if (pauseCounter.isSwitching)
+            {
+                for (int i = 7; i > 0; i--)
+                {
+                    ///Picking up items
+                    ///Small to big
+                    if (pauseCounter.before == 0 && pauseCounter.after == 1)
+                    {
+                        players[0].Move(sf::Vector2f(0.0f, 16.0f));
+                        if (i == 7 || i == 5 || i == 3 || i == 1)
+                        {
+                            players[0].SetRow(0, deltaTime);
+                            players[0].SetSize(sf::Vector2f(32.0f, 64.0f));
+                            players[0].Move(sf::Vector2f(0.0f, -32.0f));
+                        }
+                        else if (i == 6 || i == 4 || i == 2)
+                        {
+                            players[0].SetRow(5, deltaTime);
+                            players[0].SetSize(sf::Vector2f(32.0f, 32.0f));
+                            players[0].Move(sf::Vector2f(0.0f, 32.0f));
+                        }
+                    }
+                    ///Small to fire
+                    else if (pauseCounter.before == 0 && pauseCounter.after == 2)
+                    {
+                        players[0].Move(sf::Vector2f(0.0f, 16.0f));
+                        if (i == 7 || i == 5 || i == 3 || i == 1)
+                        {
+                            players[0].SetRow(10, deltaTime);
+                            players[0].SetSize(sf::Vector2f(32.0f, 64.0f));
+                            players[0].Move(sf::Vector2f(0.0f, -32.0f));
+                        }
+                        else if (i == 6 || i == 4 || i == 2)
+                        {
+                            players[0].SetRow(5, deltaTime);
+                            players[0].SetSize(sf::Vector2f(32.0f, 32.0f));
+                            players[0].Move(sf::Vector2f(0.0f, 32.0f));
+                        }
+                    }
+                    ///Big to fire
+                    else if (pauseCounter.before == 1 && pauseCounter.after == 2)
+                    {
+                        if (i == 7 || i == 5 || i == 3 || i == 1)
+                        {
+                            players[0].SetRow(10, deltaTime);
+                        }
+                        else if (i == 6 || i == 4 || i == 2)
+                        {
+                            players[0].SetRow(0, deltaTime);
+                        }
+                    }
+                    ///Hurt
+                    /*
+                    ///Fire to big
+                    else if (pauseCounter.before == 2 && pauseCounter.after == 1)
+                    {
+                        if (i == 7 || i == 5 || i == 3 || i == 1)
+                        {
+                            players[0].SetRow(0, deltaTime);
+                        }
+                        else if (i == 6 || i == 4 || i == 2)
+                        {
+                            players[0].SetRow(10, deltaTime);
+                        }
+                    }
+                    */
+                    ///Fire to small
+                    else if (pauseCounter.before == 2 && pauseCounter.after == 0)
+                    {
+                        if (i == 7 || i == 5 || i == 3 || i == 1)
+                        {
+                            players[0].SetRow(5, deltaTime);
+                            players[0].SetSize(sf::Vector2f(32.0f, 32.0f));
+                            players[0].Move(sf::Vector2f(0.0f, 32.0f));
+                        }
+                        else if (i == 6 || i == 4 || i == 2)
+                        {
+                            players[0].SetRow(10, deltaTime);
+                            players[0].SetSize(sf::Vector2f(32.0f, 64.0f));
+                            players[0].Move(sf::Vector2f(0.0f, -32.0f));
+                        }
+                    }
+                    ///Big to small
+                    else if (pauseCounter.before == 1 && pauseCounter.after == 0)
+                    {
+                        if (i == 7 || i == 5 || i == 3 || i == 1)
+                        {
+                            players[0].SetRow(5, deltaTime);
+                            players[0].SetSize(sf::Vector2f(32.0f, 32.0f));
+                            players[0].Move(sf::Vector2f(0.0f, 32.0f));
+                        }
+                        else if (i == 6 || i == 4 || i == 2)
+                        {
+                            players[0].SetRow(0, deltaTime);
+                            players[0].SetSize(sf::Vector2f(32.0f, 64.0f));
+                            players[0].Move(sf::Vector2f(0.0f, -32.0f));
+                        }
+                    }
+
+                    ///Draw player and window
+                    if (players[0].GetPosition().x >= 240.0f && players[0].GetPosition().x <= 6512.0f)
+                    {
+                        view.setCenter(sf::Vector2f(players[0].GetPosition().x, 416.0f));
+                    }
+                    window.clear(sf::Color(92, 148, 252));
+                    window.setView(view);
+
+                    ///Draw all other objects
+                    for (int i = 0; i < decorations.size(); i++)
+                    {
+                        decorations[i].Draw(window);
+                    }
+                    for (int i = 0; i < items.size(); i++)
+                    {
+                        items[i].Draw(window);
+                    }
+                    for (int i = 0; i < coins.size(); i++)
+                    {
+                        coins[i].Draw(window);
+                    }
+                    for (int i = 0; i < breakableBlocks.size(); i++)
+                    {
+                        breakableBlocks[i].Draw(window);
+                    }
+                    for (int i = 0; i < unbreakableBlocks.size(); i++)
+                    {
+                        unbreakableBlocks[i].Draw(window);
+                    }
+                    for (int i = 0; i < questionBlocks.size(); i++)
+                    {
+                        questionBlocks[i].Draw(window);
+                    }
+                    for (int i = 0; i < pipes.size(); i++)
+                    {
+                        pipes[i].Draw(window);
+                    }
+                    for (int i = 0; i < goombas.size(); i++)
+                    {
+                        goombas[i].Draw(window);
+                    }
+                    for (int i = 0; i < koopas.size(); i++)
+                    {
+                        koopas[i].Draw(window);
+                    }
+                    for (int i = 0; i < fireballs.size(); i++)
+                    {
+                        fireballs[i].Draw(window);
+                    }
+                    for (int i = 0; i < blockParticles.size(); i++)
+                    {
+                        blockParticles[i].Draw(window);
+                    }
+                    players[0].Draw(window);
+                    window.draw(marioText);
+                    window.draw(scoreNumber);
+                    coinIcons[0].Draw(window);
+                    window.draw(coinXText);
+                    window.draw(coinNumber);
+                    window.draw(worldText);
+                    window.draw(worldNumber);
+                    window.draw(timeText);
+                    window.draw(timeNumber);
+                    window.display();
+
+                    if (pauseCounter.before == 0 && pauseCounter.after != -1)
+                    {
+                        players[0].Move(sf::Vector2f(0.0f, -16.0f));
+                    }
+
+                    Sleep(1000/10);
+
+                    deltaTime = clock.restart().asSeconds();
+                }
+
+                pauseCounter.isSwitching = false;
+
+                if (pauseCounter.before == 0 && pauseCounter.after != -1)
+                {
+                    players[0].Move(sf::Vector2f(0.0f, 32.0f));
+                }
+
+                if (pauseCounter.before > pauseCounter.after)
+                {
+                    players[0].invincibilityTimer = 1;
+                }
+            }
+
+            ///Display the window
+            window.display();
+
+            ///Decrease time counter
+            if (timeLimit > 0.0f)
+            {
+                timeLimit -= deltaTime;
+            }
+            else
+            {
+                timeLimit = 0.0f;
+                if (players[0].isBig > -1)
+                {
+                    players[0].Hurt(1);
+                }
+            }
+        }
+        /*
+        ///Game over screen
+        else if (inGame == 3)
+        {
+            ///Set music
+            requestedMusic = "gameOver";
+
+            ///Do timer
+            if (loadTimer > 0.0f)
+            {
+                loadTimer -= deltaTime;
+            }
+            else
+            {
+                ///Start level
+                StartLevel(level);
+                CreateBlocks();
+                SetTextures();
+                loadTimer = 0.0f;
+                inGame = 2;
+            }
+
+            ///Reset view
+            view.setCenter(sf::Vector2f(0.0f, 0.0f));
+
+            window.clear(sf::Color(0, 0, 0));
+            window.setView(view);
+
+            ///Update and draw text
+            marioText.setPosition(sf::Vector2f(view.getCenter().x - 176.0f, view.getCenter().y - 224.0f));
+            window.draw(marioText);
+
+            stringstream ss;
+            ss << score;
+            string scoreString = ss.str();
+
+            if (score < 100000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 10000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 1000)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 100)
+            {
+                scoreString.insert(0, "0");
+            }
+            if (score < 10)
+            {
+                scoreString.insert(0, "0");
+            }
+
+            scoreNumber.setString(scoreString);
+            scoreNumber.setOrigin(sf::Vector2f(scoreNumber.getCharacterSize() * scoreNumber.getString().getSize() / 2.0f, scoreNumber.getCharacterSize() / 2.0f));
+            scoreNumber.setPosition(sf::Vector2f(view.getCenter().x - 168.0f, view.getCenter().y - 208.0f));
+            window.draw(scoreNumber);
+
+            coinIcons[0].SetPosition(view.getCenter().x - 80.0f, view.getCenter().y - 208.0f);
+            coinIcons[0].Update(deltaTime);
+            coinIcons[0].Draw(window);
+
+            coinXText.setPosition(sf::Vector2f(view.getCenter().x - 64.0f, view.getCenter().y - 208.0f));
+            window.draw(coinXText);
+
+            stringstream cs;
+            cs << coinCounter;
+            string coinString = cs.str();
+
+            if (coinCounter < 10)
+            {
+                coinString.insert(0, "0");
+            }
+
+            coinNumber.setString(coinString);
+            coinNumber.setOrigin(sf::Vector2f(coinNumber.getCharacterSize() * coinNumber.getString().getSize() / 2.0f, coinNumber.getCharacterSize() / 2.0f));
+            coinNumber.setPosition(sf::Vector2f(view.getCenter().x - 32.0f, view.getCenter().y - 208.0f));
+            window.draw(coinNumber);
+
+            worldText.setPosition(sf::Vector2f(view.getCenter().x + 64.0f, view.getCenter().y - 224.0f));
+            window.draw(worldText);
+
+            stringstream ws;
+            ws << level;
+            string worldString = ws.str();
+            worldString.insert(1, "-");
+
+            worldNumber.setString(worldString);
+            worldNumber.setOrigin(sf::Vector2f(worldNumber.getCharacterSize() * worldNumber.getString().getSize() / 2.0f, worldNumber.getCharacterSize() / 2.0f));
+            worldNumber.setPosition(sf::Vector2f(view.getCenter().x + 64.0f, view.getCenter().y - 208.0f));
+            window.draw(worldNumber);
+
+            timeText.setPosition(sf::Vector2f(view.getCenter().x + 176.0f, view.getCenter().y - 224.0f));
+            window.draw(timeText);
+
+            ///Game over screen exclusive UI
+
+            window.display();
+        }
+        */
+    }
+
+    return 0;
+}
